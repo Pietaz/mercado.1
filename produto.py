@@ -17,9 +17,9 @@ class Produto:
 
     def __str__(self) -> str:
         return (
-            f"Código: {self.codigo} | "
+            f"Código de Barra: {self.codigo} | "
             f"Nome: {self.nome} | "
             f"Categoria: {self.categoria} | "
             f"Preço: R$ {self.preco:.2f} | "
-            f"Qtd: {self.quantidade}"
+            f"Quantidade: {self.quantidade}"
         )

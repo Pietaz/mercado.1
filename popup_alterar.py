@@ -25,7 +25,7 @@ class PopupAlterar(ctk.CTkToplevel):
     def _montar(self):
         prod = self.prod
 
-        ctk.CTkLabel(self, text="Código:").grid(row=0, column=0, padx=10, pady=8, sticky="w")
+        ctk.CTkLabel(self, text="Código de Barra:").grid(row=0, column=0, padx=10, pady=8, sticky="w")
         self.ent_codigo = ctk.CTkEntry(self, width=200)
         self.ent_codigo.grid(row=0, column=1, padx=10, pady=8)
         self.ent_codigo.insert(0, str(prod.codigo))

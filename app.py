@@ -7,7 +7,6 @@ from produto import Produto
 from estoque import Estoque
 
 from aba_cadastrar import AbaCadastrar
-from aba_buscar import AbaBuscar
 from aba_listar import AbaListar
 
 # Verificação: garante que os arquivos carregados são as versões novas.
@@ -45,13 +44,10 @@ class AppEstoque(ctk.CTk):
         self.abas.pack(fill="both", expand=True, padx=10, pady=10)
 
         tab_cadastrar = self.abas.add("Cadastrar")
-        tab_buscar = self.abas.add("Consultar")
         tab_listar = self.abas.add("Listar no Estoque")
 
-        # A ordem de criação segue a original: Cadastrar, Buscar e por
-        # último Listar (que já nasce exibindo a tabela preenchida).
+        # A aba Listar concentra busca, edição e exclusão de produtos.
         self.aba_cadastrar = AbaCadastrar(tab_cadastrar, self)
-        self.aba_buscar = AbaBuscar(tab_buscar, self)
         self.aba_listar = AbaListar(tab_listar, self)
 
     # ------------------------------------------------------------------
