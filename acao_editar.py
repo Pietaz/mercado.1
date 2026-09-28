@@ -25,9 +25,7 @@ class AcaoEditar:
         if prod is None:
             return True
 
-        if messagebox.askyesno(
-            {prod.nome}
-        ):
+        if messagebox.askyesno({prod.nome}):
             PopupAlterar(self.app, prod, ao_salvar=self.ao_atualizar)
 
         return True
