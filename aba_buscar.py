@@ -6,7 +6,6 @@ from popup_alterar import PopupAlterar
 
 
 class AbaBuscar:
-    """Aba de consulta e alteração de produtos."""
 
     def __init__(self, aba, app):
         self.app = app
@@ -28,7 +27,7 @@ class AbaBuscar:
         self.lbl_resultado_busca = ctk.CTkLabel(aba, text="", justify="left", anchor="w")
         self.lbl_resultado_busca.grid(row=1, column=0, columnspan=3, padx=10, pady=15, sticky="w")
 
-        # Botão de alterar: começa escondido, só aparece quando acha o produto
+      
         self.btn_alterar = ctk.CTkButton(
             aba, text="Alterar Produto", command=self.abrir_popup_alterar,
             fg_color="#A37BD6", hover_color="#8358BE",
@@ -67,6 +66,5 @@ class AbaBuscar:
         PopupAlterar(self.app, self.produto_encontrado, ao_salvar=self._apos_salvar_alteracao)
 
     def _apos_salvar_alteracao(self):
-        """Chamado pelo popup depois que a alteração é salva com sucesso."""
         self.acao_buscar()
         self.app.refresh_listar()
