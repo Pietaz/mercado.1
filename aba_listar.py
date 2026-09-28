@@ -7,14 +7,13 @@ from acao_excluir import AcaoExcluir
 
 
 class AbaListar:
-    """Aba de listagem, busca, edição e exclusão de produtos em estoque."""
 
     def __init__(self, aba, app):
         self.app = app
         self.estoque = app.estoque
-        self.linha_hover = None  # item da tabela que está sob o mouse no momento
+        self.linha_hover = None 
 
-        # Cada ação cuida do próprio fluxo de seleção + confirmação
+       
         self.acao_editar = AcaoEditar(self.app, ao_atualizar=self.acao_listar)
         self.acao_excluir = AcaoExcluir(self.app, ao_atualizar=self.acao_listar)
 
@@ -22,7 +21,6 @@ class AbaListar:
         self.acao_listar()
 
     def _montar(self, aba):
-        # Barra superior: Buscar | Categoria | Editar | Excluir
         frame_filtro = ctk.CTkFrame(aba, fg_color="transparent")
         frame_filtro.pack(fill="x", pady=(0, 8))
 
@@ -56,7 +54,6 @@ class AbaListar:
         )
         self.btn_excluir.pack(side="left")
 
-        # Estilo do Treeview para combinar com o tema escuro
         estilo = ttk.Style()
         estilo.theme_use("clam")
         estilo.configure(
@@ -83,7 +80,7 @@ class AbaListar:
         colunas = ("codigo", "nome", "categoria", "preco", "quantidade")
         self.tabela = ttk.Treeview(frame_tabela, columns=colunas, show="headings")
 
-        # Títulos e conteúdo das células centralizados
+
         self.tabela.heading("codigo", text="Código", anchor="center")
         self.tabela.heading("nome", text="Nome", anchor="center")
         self.tabela.heading("categoria", text="Categoria", anchor="center")
@@ -96,7 +93,7 @@ class AbaListar:
         self.tabela.column("preco", width=120, anchor="center")
         self.tabela.column("quantidade", width=110, anchor="center")
 
-        # Tag usada para escurecer a linha sob o cursor do mouse
+
         self.tabela.tag_configure("hover", background="#1e1e1e")
 
         barra = ctk.CTkScrollbar(frame_tabela, command=self.tabela.yview)
@@ -105,10 +102,10 @@ class AbaListar:
         barra.pack(side="right", fill="y")
         self.tabela.pack(side="left", fill="both", expand=True)
 
-        # Clique em uma linha: repassa para a ação (editar/excluir) ativa
+
         self.tabela.bind("<<TreeviewSelect>>", self.ao_selecionar_produto)
 
-        # Escurece a linha sob o cursor para indicar qual produto será selecionado
+  
         self.tabela.bind("<Motion>", self.ao_passar_mouse)
         self.tabela.bind("<Leave>", self.ao_sair_mouse)
 
@@ -122,12 +119,9 @@ class AbaListar:
         btn_atualizar.pack(pady=10)
 
     def atualizar_categoria_values(self, categorias):
-        """Chamado pelo App quando a lista de categorias muda em qualquer aba."""
         self.cmb_filtro.configure(values=[TODAS] + categorias)
 
     def acao_listar(self, _=None):
-        # O parâmetro "_" recebe o valor/evento enviado pelo combobox ou
-        # pela tecla digitada na busca, e é ignorado.
         for item in self.tabela.get_children():
             self.tabela.delete(item)
 
@@ -140,22 +134,17 @@ class AbaListar:
                 continue
             if texto_busca and texto_busca not in p.nome.lower() and texto_busca not in str(p.codigo):
                 continue
-            self.tabela.insert(
-                "", "end",
-                values=(p.codigo, p.nome, p.categoria, formatar_preco(p.preco), p.quantidade),
-            )
+            self.tabela.insert(values=(p.codigo, p.nome, p.categoria, formatar_preco(p.preco), p.quantidade))
             exibidos += 1
 
         self.lbl_contagem.configure(text=f"Exibindo {exibidos} produto(s)")
 
-    # ------------------------------------------------------------------
-    # EFEITO DE HOVER (escurece a linha sob o cursor)
-    # ------------------------------------------------------------------
+
     def ao_passar_mouse(self, evento):
         item = self.tabela.identify_row(evento.y)
 
         if item == self.linha_hover:
-            return  # mouse continua na mesma linha, nada a fazer
+            return  
 
         if self.linha_hover is not None and self.tabela.exists(self.linha_hover):
             self.tabela.item(self.linha_hover, tags=())
@@ -170,9 +159,7 @@ class AbaListar:
             self.tabela.item(self.linha_hover, tags=())
         self.linha_hover = None
 
-    # ------------------------------------------------------------------
-    # CLIQUE NA TABELA: repassa para a ação (editar/excluir) que estiver ativa
-    # ------------------------------------------------------------------
+
     def ao_selecionar_produto(self, _evento):
         selecionados = self.tabela.selection()
         if not selecionados:
@@ -182,7 +169,7 @@ class AbaListar:
         codigo = int(valores[0])
         self.tabela.selection_remove(item_id)
 
-        # Cada ação sabe se está ativa; só uma delas trata o clique por vez.
+  
         if self.acao_editar.tratar_selecao(codigo):
             return
         self.acao_excluir.tratar_selecao(codigo)
