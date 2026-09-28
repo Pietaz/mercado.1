@@ -6,7 +6,6 @@ from helpers import ler_numero
 
 
 class AbaCadastrar:
-    """Aba de cadastro de novos produtos."""
 
     def __init__(self, aba, app):
         self.app = app
@@ -50,7 +49,6 @@ class AbaCadastrar:
         btn_cadastrar.grid(row=5, column=0, columnspan=2, pady=20)
 
     def atualizar_categoria_values(self, categorias):
-        """Chamado pelo App quando a lista de categorias muda em qualquer aba."""
         self.cmb_categoria.configure(values=categorias)
 
     def acao_nova_categoria(self):
@@ -69,9 +67,7 @@ class AbaCadastrar:
             preco = ler_numero(self.ent_preco.get(), float)
             quantidade = ler_numero(self.ent_qtd.get(), int)
         except ValueError:
-            messagebox.showerror(
-                "Erro", "Por favor, digite números válidos para código, preço e quantidade."
-            )
+            messagebox.showerror("Erro", "Por favor, digite números válidos para código, preço e quantidade.")
             return
 
         if codigo <= 0:
