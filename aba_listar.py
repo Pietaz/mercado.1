@@ -20,7 +20,10 @@ class AbaListar:
         ("Ações",        120, "center"),
     ]
 
-    # atraso (ms) para aplicar a busca depois da última tecla
+    # cores da linha
+    COR_LINHA = "#2b2b2b"
+    COR_LINHA_HOVER = "#3a3a3a"
+
     DEBOUNCE_MS = 200
 
     def __init__(self, aba, app):
@@ -35,7 +38,6 @@ class AbaListar:
 
     # ---------- construção ----------
     def _montar(self, aba):
-        # Frame de busca em tempo real
         frame_busca = ctk.CTkFrame(aba, fg_color="transparent")
         frame_busca.pack(fill="x", pady=(0, 8))
 
@@ -57,7 +59,6 @@ class AbaListar:
             fg_color="#555555", hover_color="#333333",
         ).pack(side="left")
 
-        # Filtro por categoria
         frame_filtro = ctk.CTkFrame(aba, fg_color="transparent")
         frame_filtro.pack(fill="x", pady=(0, 8))
 
@@ -72,7 +73,6 @@ class AbaListar:
         self.cmb_filtro.set(TODAS)
         self.cmb_filtro.pack(side="left")
 
-        # Cabeçalho
         frame_header = ctk.CTkFrame(aba, fg_color="#3a3a3a", corner_radius=6)
         frame_header.pack(fill="x", pady=(0, 4))
         for texto, largura, anchor in self.COLUNAS:
@@ -84,7 +84,6 @@ class AbaListar:
                 font=("Arial", 12, "bold"),
             ).pack(side="left", padx=4, pady=6)
 
-        # Área de linhas (scrollable)
         self.frame_lista = ctk.CTkScrollableFrame(aba, fg_color="transparent")
         self.frame_lista.pack(fill="both", expand=True)
 
@@ -96,17 +95,48 @@ class AbaListar:
             fg_color="#A37BD6", hover_color="#8358BE",
         ).pack(pady=10)
 
-    # ---------- ligação de eventos para busca em tempo real ----------
+    # ---------- ligação de eventos ----------
     def _ligar_busca_tempo_real(self, entry):
-        """
-        CTkEntry não suporta textvariable/trace_add corretamente,
-        então usamos bindings diretos nos eventos de teclado.
-        """
         entry.bind("<KeyRelease>", self._agendar_busca)
         entry.bind("<<Paste>>", lambda e: self.after(10, self._agendar_busca))
         entry.bind("<<Cut>>",   lambda e: self.after(10, self._agendar_busca))
         entry.bind("<<Clear>>", lambda e: self.after(10, self._agendar_busca))
         entry.bind("<<PasteSelection>>", lambda e: self.after(10, self._agendar_busca))
+
+    def _ligar_hover_linha(self, linha, widgets):
+        """Aplica efeito de hover em todos os widgets da linha."""
+        def on_enter(_):
+            self._pintar_linha(linha, widgets, self.COR_LINHA_HOVER)
+
+        def on_leave(_):
+            # evita flicker: só desliga se o mouse realmente saiu da linha
+            x, y = linha.winfo_pointerxy()
+            widget_sob_mouse = linha.winfo_containing(x, y)
+            # se ainda está sob algum widget da linha, ignora
+            if widget_sob_mouse is not None:
+                atual = widget_sob_mouse
+                while atual is not None:
+                    if atual is linha:
+                        return
+                    atual = atual.master
+            self._pintar_linha(linha, widgets, self.COR_LINHA)
+
+        for w in widgets:
+            w.bind("<Enter>", on_enter, add="+")
+            w.bind("<Leave>", on_leave, add="+")
+
+    @staticmethod
+    def _pintar_linha(linha, widgets, cor):
+        try:
+            linha.configure(fg_color=cor)
+        except Exception:
+            pass
+        for w in widgets:
+            if isinstance(w, ctk.CTkFrame):
+                try:
+                    w.configure(fg_color=cor)
+                except Exception:
+                    pass
 
     # ---------- categorias ----------
     def _categorias_para_filtro(self):
@@ -186,8 +216,13 @@ class AbaListar:
             self.lbl_contagem.configure(text=f"Exibindo {len(produtos)} produto(s)")
 
     def _criar_linha(self, prod):
-        linha = ctk.CTkFrame(self.frame_lista, fg_color="#2b2b2b", corner_radius=6)
+        linha = ctk.CTkFrame(
+            self.frame_lista, fg_color=self.COR_LINHA, corner_radius=6,
+        )
         linha.pack(fill="x", pady=2, padx=2)
+
+        # coleta os widgets "internos" que precisam reagir ao hover
+        widgets_hover = [linha]
 
         valores = [
             (str(prod.codigo),               self.COLUNAS[0][1], self.COLUNAS[0][2]),
@@ -197,24 +232,35 @@ class AbaListar:
             (str(prod.quantidade),           self.COLUNAS[4][1], self.COLUNAS[4][2]),
         ]
         for texto, largura, anchor in valores:
-            ctk.CTkLabel(
+            lbl = ctk.CTkLabel(
                 linha, text=texto, width=largura, anchor=anchor,
-            ).pack(side="left", padx=4, pady=6)
+            )
+            lbl.pack(side="left", padx=4, pady=6)
+            widgets_hover.append(lbl)
 
-        frame_acoes = ctk.CTkFrame(linha, fg_color="transparent")
+        frame_acoes = ctk.CTkFrame(linha, fg_color=self.COR_LINHA)
         frame_acoes.pack(side="left", padx=4, pady=6)
+        widgets_hover.append(frame_acoes)
 
-        ctk.CTkButton(
+        btn_editar = ctk.CTkButton(
             frame_acoes, text="✏", width=40, height=28,
             fg_color="#3498DB", hover_color="#2980B9",
             command=lambda p=prod: self._abrir_popup_alterar(p),
-        ).pack(side="left", padx=(0, 4))
+        )
+        btn_editar.pack(side="left", padx=(0, 4))
 
-        ctk.CTkButton(
+        btn_excluir = ctk.CTkButton(
             frame_acoes, text="🗑", width=40, height=28,
             fg_color="#C0392B", hover_color="#922B21",
             command=lambda p=prod: self._abrir_popup_excluir(p),
-        ).pack(side="left")
+        )
+        btn_excluir.pack(side="left")
+
+        # os botões também disparam enter/leave pra manter a linha acesa
+        # enquanto o mouse está em cima deles (sem pintá-los)
+        widgets_hover.extend([btn_editar, btn_excluir])
+
+        self._ligar_hover_linha(linha, widgets_hover)
 
     # ---------- alteração ----------
     def _abrir_popup_alterar(self, prod):
