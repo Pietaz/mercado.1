@@ -1,14 +1,15 @@
+# aba_listar.py
 import customtkinter as ctk
 from tkinter import messagebox
 
 from helpers import formatar_preco, TODAS
-from buscar import BuscaProdutos
+from busca import BuscaProdutos
 from popup_excluir import PopupExcluir
 from popup_alterar import PopupAlterar
 
 
 class AbaListar:
-    """Aba de listagem, busca e filtro dos produtos em estoque."""
+    """Aba de listagem, busca em tempo real e filtro dos produtos em estoque."""
 
     COLUNAS = [
         ("Código",       80,  "center"),
@@ -19,34 +20,37 @@ class AbaListar:
         ("Ações",        120, "center"),
     ]
 
+    # atraso (ms) para aplicar a busca depois da última tecla
+    DEBOUNCE_MS = 200
+
     def __init__(self, aba, app):
         self.app = app
         self.estoque = app.estoque
         self.busca = BuscaProdutos(self.estoque)
+
+        self._job_busca = None
+
         self._montar(aba)
         self.acao_listar()
 
     # ---------- construção ----------
     def _montar(self, aba):
-        # Frame de busca
+        # Frame de busca em tempo real
         frame_busca = ctk.CTkFrame(aba, fg_color="transparent")
         frame_busca.pack(fill="x", pady=(0, 8))
 
         ctk.CTkLabel(frame_busca, text="Buscar por código:").pack(side="left", padx=(0, 8))
         vcmd_codigo = (aba.register(self._validar_codigo_busca), "%P")
         self.ent_busca_codigo = ctk.CTkEntry(
-            frame_busca, width=120, validate="key", validatecommand=vcmd_codigo
+            frame_busca, width=120, validate="key", validatecommand=vcmd_codigo,
         )
         self.ent_busca_codigo.pack(side="left", padx=(0, 15))
+        self._ligar_busca_tempo_real(self.ent_busca_codigo)
 
         ctk.CTkLabel(frame_busca, text="Nome:").pack(side="left", padx=(0, 8))
         self.ent_busca_nome = ctk.CTkEntry(frame_busca, width=180)
         self.ent_busca_nome.pack(side="left", padx=(0, 15))
-
-        ctk.CTkButton(
-            frame_busca, text="Buscar", width=100, command=self.acao_buscar,
-            fg_color="#A37BD6", hover_color="#8358BE",
-        ).pack(side="left", padx=(0, 10))
+        self._ligar_busca_tempo_real(self.ent_busca_nome)
 
         ctk.CTkButton(
             frame_busca, text="Limpar", width=80, command=self._limpar_busca,
@@ -63,7 +67,7 @@ class AbaListar:
             values=[TODAS] + self._categorias_para_filtro(),
             state="readonly",
             width=220,
-            command=self.acao_listar,
+            command=self.acao_buscar,
         )
         self.cmb_filtro.set(TODAS)
         self.cmb_filtro.pack(side="left")
@@ -80,6 +84,7 @@ class AbaListar:
                 font=("Arial", 12, "bold"),
             ).pack(side="left", padx=4, pady=6)
 
+        # Área de linhas (scrollable)
         self.frame_lista = ctk.CTkScrollableFrame(aba, fg_color="transparent")
         self.frame_lista.pack(fill="both", expand=True)
 
@@ -91,11 +96,17 @@ class AbaListar:
             fg_color="#A37BD6", hover_color="#8358BE",
         ).pack(pady=10)
 
-    # ---------- validações ----------
-    def _validar_codigo_busca(self, texto):
-        if texto == "":
-            return True
-        return texto.isdigit()
+    # ---------- ligação de eventos para busca em tempo real ----------
+    def _ligar_busca_tempo_real(self, entry):
+        """
+        CTkEntry não suporta textvariable/trace_add corretamente,
+        então usamos bindings diretos nos eventos de teclado.
+        """
+        entry.bind("<KeyRelease>", self._agendar_busca)
+        entry.bind("<<Paste>>", lambda e: self.after(10, self._agendar_busca))
+        entry.bind("<<Cut>>",   lambda e: self.after(10, self._agendar_busca))
+        entry.bind("<<Clear>>", lambda e: self.after(10, self._agendar_busca))
+        entry.bind("<<PasteSelection>>", lambda e: self.after(10, self._agendar_busca))
 
     # ---------- categorias ----------
     def _categorias_para_filtro(self):
@@ -110,29 +121,52 @@ class AbaListar:
         if self.cmb_filtro.get() not in ([TODAS] + self._categorias_para_filtro()):
             self.cmb_filtro.set(TODAS)
 
-    # ---------- busca ----------
+    # ---------- validação ----------
+    def _validar_codigo_busca(self, texto):
+        if texto == "":
+            return True
+        return texto.isdigit()
+
+    # ---------- busca em tempo real ----------
+    def _agendar_busca(self, _=None):
+        if self._job_busca is not None:
+            try:
+                self.app.after_cancel(self._job_busca)
+            except Exception:
+                pass
+        self._job_busca = self.app.after(self.DEBOUNCE_MS, self.acao_buscar)
+
     def _limpar_busca(self):
         self.ent_busca_codigo.delete(0, "end")
         self.ent_busca_nome.delete(0, "end")
-        self.acao_listar()
+        if self._job_busca is not None:
+            try:
+                self.app.after_cancel(self._job_busca)
+            except Exception:
+                pass
+            self._job_busca = None
+        self.acao_buscar()
 
-    def acao_buscar(self):
-        codigo, erro = BuscaProdutos.parse_codigo(self.ent_busca_codigo.get())
-        if erro:
-            messagebox.showerror("Erro", erro)
-            return
+    def acao_buscar(self, _=None):
+        self._job_busca = None
 
+        codigo_texto = self.ent_busca_codigo.get().strip()
         nome = self.ent_busca_nome.get().strip() or None
 
-        if codigo is None and nome is None:
-            self.acao_listar()
-            return
+        filtro = self.cmb_filtro.get()
+        categoria = None if filtro == TODAS else filtro
 
-        resultados = self.busca.buscar(codigo=codigo, nome=nome)
+        resultados = self.busca.buscar(
+            codigo_parcial=codigo_texto or None,
+            nome=nome,
+            categoria=categoria,
+        )
         self._renderizar(resultados)
 
     # ---------- listagem ----------
     def acao_listar(self, _=None):
+        self.ent_busca_codigo.delete(0, "end")
+        self.ent_busca_nome.delete(0, "end")
         filtro = self.cmb_filtro.get()
         categoria = None if filtro == TODAS else filtro
         resultados = self.busca.buscar(categoria=categoria)
